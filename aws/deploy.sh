@@ -10,6 +10,10 @@ cd "$(dirname "$0")"
 
 python3 build_site.py
 
+echo "Account: $(aws sts get-caller-identity --query Account --output text)  Region: $REGION  Stack: $STACK"
+aws cloudformation validate-template --region "$REGION" --template-body file://template.yaml >/dev/null
+echo "Template validated. Deploying (CloudFront can take 5-10 minutes)..."
+
 aws cloudformation deploy \
   --region "$REGION" --stack-name "$STACK" --template-file template.yaml \
   --parameter-overrides AuthToken="$(printf '%s' "${SITE_USER:-reviewer}:${SITE_PASSWORD}" | base64 | tr -d '\n')"
