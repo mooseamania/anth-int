@@ -1,0 +1,636 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Monolith dependency map</title>
+<style>
+  :root { --bg:#faf9f5; --fg:#141413; --muted:#6b6a64; --card:#ffffff; --line:#d9d7cf;
+          --cross:#c2410c; --cycle:#b91c1c; --plat:#9ca3af; --ok:#3d6b4f; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#1f1e1d; --fg:#f0eee6; --muted:#a8a69c; --card:#2a2928; --line:#44423e;
+            --cross:#fb923c; --cycle:#f87171; --plat:#6b7280; --ok:#7fb592; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif; }
+  .wrap { max-width:1100px; margin:0 auto; padding:20px 16px 40px; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  p.sub { color:var(--muted); margin:0 0 16px; }
+  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:14px; }
+  .stat { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px 12px; }
+  .stat b { display:block; font-size:24px; }
+  .stat span { color:var(--muted); font-size:13px; }
+  .controls { display:flex; flex-wrap:wrap; gap:14px; margin:8px 0 10px; font-size:14px; }
+  label { cursor:pointer; user-select:none; }
+  .panel { background:var(--card); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  svg { width:100%; height:auto; display:block; }
+  #detail { margin-top:12px; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 14px; min-height:74px; font-size:14px; }
+  .legend { display:flex; flex-wrap:wrap; gap:14px; margin-top:10px; font-size:13px; color:var(--muted); }
+  .legend i { display:inline-block; width:22px; height:0; border-top:3px solid; vertical-align:middle; margin-right:5px; }
+  text { fill:var(--fg); font-family:inherit; }
+  .svc-label { font-size:13px; font-weight:600; fill:var(--muted); letter-spacing:.02em; }
+  .node-label { font-size:12px; pointer-events:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Where the monolith needs cutting</h1>
+  <p class="sub">Every line is a place one part of the system calls another. Orange lines would become network calls after the split; the red loop is a circular dependency to break first.</p>
+  <div class="stats" id="stats"></div>
+  <div class="controls">
+    <label><input type="checkbox" id="tPlat"> Show shared-library links</label>
+    <label><input type="checkbox" id="tInternal" checked> Show links inside a service</label>
+    <label><input type="checkbox" id="tTables"> Show shared data tables</label>
+  </div>
+  <div class="panel"><svg id="svg" viewBox="0 0 1000 620" role="img" aria-label="Dependency graph of monolith modules grouped by proposed service"></svg></div>
+  <div id="detail">Hover or tap a module to see what it depends on and who depends on it.</div>
+  <div class="legend">
+    <span><i style="border-color:var(--cross)"></i>Becomes an API/event call</span>
+    <span><i style="border-color:var(--cycle)"></i>Circular dependency</span>
+    <span><i style="border-color:var(--ok)"></i>Stays inside one service</span>
+    <span><i style="border-color:var(--plat);border-top-style:dashed"></i>Shared library</span>
+    <span>Bigger circle = more connections</span>
+  </div>
+</div>
+<script>
+const G = {
+  "nodes": [
+    {
+      "id": "accounts",
+      "loc": 22,
+      "service": "identity",
+      "fan_in": 6,
+      "fan_out": 3,
+      "tables": [
+        "accounts",
+        "users"
+      ],
+      "in_cycle": false,
+      "platform": false
+    },
+    {
+      "id": "auth",
+      "loc": 24,
+      "service": "identity",
+      "fan_in": 2,
+      "fan_out": 3,
+      "tables": [
+        "sessions",
+        "users"
+      ],
+      "in_cycle": false,
+      "platform": false
+    },
+    {
+      "id": "batch_jobs",
+      "loc": 23,
+      "service": "reporting-bi",
+      "fan_in": 0,
+      "fan_out": 7,
+      "tables": [
+        "accounts"
+      ],
+      "in_cycle": false,
+      "platform": false
+    },
+    {
+      "id": "config",
+      "loc": 10,
+      "service": "platform-lib",
+      "fan_in": 7,
+      "fan_out": 0,
+      "tables": [],
+      "in_cycle": false,
+      "platform": true
+    },
+    {
+      "id": "db",
+      "loc": 15,
+      "service": "platform-lib",
+      "fan_in": 7,
+      "fan_out": 1,
+      "tables": [],
+      "in_cycle": false,
+      "platform": true
+    },
+    {
+      "id": "fraud",
+      "loc": 16,
+      "service": "payments-core",
+      "fan_in": 1,
+      "fan_out": 5,
+      "tables": [
+        "fraud_scores"
+      ],
+      "in_cycle": true,
+      "platform": false
+    },
+    {
+      "id": "ledger",
+      "loc": 25,
+      "service": "ledger-core",
+      "fan_in": 4,
+      "fan_out": 3,
+      "tables": [
+        "ledger"
+      ],
+      "in_cycle": false,
+      "platform": false
+    },
+    {
+      "id": "mobile_api",
+      "loc": 24,
+      "service": "mobile-bff",
+      "fan_in": 0,
+      "fan_out": 5,
+      "tables": [],
+      "in_cycle": false,
+      "platform": false
+    },
+    {
+      "id": "notifications",
+      "loc": 21,
+      "service": "notifications",
+      "fan_in": 3,
+      "fan_out": 2,
+      "tables": [],
+      "in_cycle": false,
+      "platform": false
+    },
+    {
+      "id": "payments",
+      "loc": 25,
+      "service": "payments-core",
+      "fan_in": 4,
+      "fan_out": 7,
+      "tables": [
+        "payments"
+      ],
+      "in_cycle": true,
+      "platform": false
+    },
+    {
+      "id": "reporting",
+      "loc": 23,
+      "service": "reporting-bi",
+      "fan_in": 2,
+      "fan_out": 5,
+      "tables": [
+        "ledger",
+        "payments"
+      ],
+      "in_cycle": false,
+      "platform": false
+    },
+    {
+      "id": "utils",
+      "loc": 21,
+      "service": "platform-lib",
+      "fan_in": 6,
+      "fan_out": 1,
+      "tables": [],
+      "in_cycle": false,
+      "platform": true
+    }
+  ],
+  "edges": [
+    {
+      "source": "accounts",
+      "target": "auth",
+      "cross_service": false,
+      "to_platform": false,
+      "in_cycle": false
+    },
+    {
+      "source": "accounts",
+      "target": "utils",
+      "cross_service": true,
+      "to_platform": true,
+      "in_cycle": false
+    },
+    {
+      "source": "accounts",
+      "target": "db",
+      "cross_service": true,
+      "to_platform": true,
+      "in_cycle": false
+    },
+    {
+      "source": "auth",
+      "target": "utils",
+      "cross_service": true,
+      "to_platform": true,
+      "in_cycle": false
+    },
+    {
+      "source": "auth",
+      "target": "db",
+      "cross_service": true,
+      "to_platform": true,
+      "in_cycle": false
+    },
+    {
+      "source": "auth",
+      "target": "config",
+      "cross_service": true,
+      "to_platform": true,
+      "in_cycle": false
+    },
+    {
+      "source": "utils",
+      "target": "config",
+      "cross_service": false,
+      "to_platform": true,
+      "in_cycle": false
+    },
+    {
+      "source": "db",
+      "target": "config",
+      "cross_service": false,
+      "to_platform": true,
+      "in_cycle": false
+    },
+    {
+      "source": "batch_jobs",
+      "target": "payments",
+      "cross_service": true,
+      "to_platform": false,
+      "in_cycle": false
+    },
+    {
+      "source": "batch_jobs",
+      "target": "utils",
+      "cross_service": true,
+      "to_platform": true,
+      "in_cycle": false
+    },
+    {
+      "source": "batch_jobs",
+      "target": "ledger",
+      "cross_service": true,
+      "to_platform": false,
+      "in_cycle": false
+    },
+    {
+      "source": "batch_jobs",
+      "target": "accounts",
+      "cross_service": true,
+      "to_platform": false,
+      "in_cycle": false
+    },
+    {
+      "source": "batch_jobs",
+      "target": "db",
+      "cross_service": true,
+      "to_platform": true,
+      "in_cycle": false
+    },
+    {
+      "source": "batch_jobs",
+      "target": "reporting",
+      "cross_service": false,
+      "to_platform": false,
+      "in_cycle": false
+    },
+    {
+      "source": "batch_jobs",
+      "target": "notifications",
+      "cross_service": true,
+      "to_platform": false,
+      "in_cycle": false
+    },
+    {
+      "source": "payments",
+      "target": "utils",
+      "cross_service": true,
+      "to_platform": true,
+      "in_cycle": false
+    },
+    {
+      "source": "payments",
+      "target": "config",
+      "cross_service": true,
+      "to_platform": true,
+      "in_cycle": false
+    },
+    {
+      "source": "payments",
+      "target": "fraud",
+      "cross_service": false,
+      "to_platform": false,
+      "in_cycle": true
+    },
+    {
+      "source": "payments",
+      "target": "ledger",
+      "cross_service": true,
+      "to_platform": false,
+      "in_cycle": false
+    },
+    {
+      "source": "payments",
+      "target": "accounts",
+      "cross_service": true,
+      "to_platform": false,
+      "in_cycle": false
+    },
+    {
+      "source": "payments",
+      "target": "db",
+      "cross_service": true,
+      "to_platform": true,
+      "in_cycle": false
+    },
+    {
+      "source": "payments",
+      "target": "notifications",
+      "cross_service": true,
+      "to_platform": false,
+      "in_cycle": false
+    },
+    {
+      "source": "ledger",
+      "target": "utils",
+      "cross_service": true,
+      "to_platform": true,
+      "in_cycle": false
+    },
+    {
+      "source": "ledger",
+      "target": "accounts",
+      "cross_service": true,
+      "to_platform": false,
+      "in_cycle": false
+    },
+    {
+      "source": "ledger",
+      "target": "db",
+      "cross_service": true,
+      "to_platform": true,
+      "in_cycle": false
+    },
+    {
+      "source": "reporting",
+      "target": "payments",
+      "cross_service": true,
+      "to_platform": false,
+      "in_cycle": false
+    },
+    {
+      "source": "reporting",
+      "target": "config",
+      "cross_service": true,
+      "to_platform": true,
+      "in_cycle": false
+    },
+    {
+      "source": "reporting",
+      "target": "ledger",
+      "cross_service": true,
+      "to_platform": false,
+      "in_cycle": false
+    },
+    {
+      "source": "reporting",
+      "target": "accounts",
+      "cross_service": true,
+      "to_platform": false,
+      "in_cycle": false
+    },
+    {
+      "source": "reporting",
+      "target": "db",
+      "cross_service": true,
+      "to_platform": true,
+      "in_cycle": false
+    },
+    {
+      "source": "notifications",
+      "target": "accounts",
+      "cross_service": true,
+      "to_platform": false,
+      "in_cycle": false
+    },
+    {
+      "source": "notifications",
+      "target": "config",
+      "cross_service": true,
+      "to_platform": true,
+      "in_cycle": false
+    },
+    {
+      "source": "fraud",
+      "target": "payments",
+      "cross_service": false,
+      "to_platform": false,
+      "in_cycle": true
+    },
+    {
+      "source": "fraud",
+      "target": "utils",
+      "cross_service": true,
+      "to_platform": true,
+      "in_cycle": false
+    },
+    {
+      "source": "fraud",
+      "target": "config",
+      "cross_service": true,
+      "to_platform": true,
+      "in_cycle": false
+    },
+    {
+      "source": "fraud",
+      "target": "ledger",
+      "cross_service": true,
+      "to_platform": false,
+      "in_cycle": false
+    },
+    {
+      "source": "fraud",
+      "target": "db",
+      "cross_service": true,
+      "to_platform": true,
+      "in_cycle": false
+    },
+    {
+      "source": "mobile_api",
+      "target": "payments",
+      "cross_service": true,
+      "to_platform": false,
+      "in_cycle": false
+    },
+    {
+      "source": "mobile_api",
+      "target": "notifications",
+      "cross_service": true,
+      "to_platform": false,
+      "in_cycle": false
+    },
+    {
+      "source": "mobile_api",
+      "target": "accounts",
+      "cross_service": true,
+      "to_platform": false,
+      "in_cycle": false
+    },
+    {
+      "source": "mobile_api",
+      "target": "auth",
+      "cross_service": true,
+      "to_platform": false,
+      "in_cycle": false
+    },
+    {
+      "source": "mobile_api",
+      "target": "reporting",
+      "cross_service": true,
+      "to_platform": false,
+      "in_cycle": false
+    }
+  ],
+  "cycles": [
+    [
+      "fraud",
+      "payments"
+    ]
+  ],
+  "shared_tables": {
+    "accounts": [
+      "accounts",
+      "batch_jobs"
+    ],
+    "ledger": [
+      "ledger",
+      "reporting"
+    ],
+    "payments": [
+      "payments",
+      "reporting"
+    ]
+  },
+  "detected_communities": [
+    [
+      "batch_jobs",
+      "fraud",
+      "ledger",
+      "payments",
+      "reporting"
+    ],
+    [
+      "accounts",
+      "auth",
+      "mobile_api",
+      "notifications"
+    ]
+  ],
+  "summary": {
+    "modules": 12,
+    "total_loc": 249,
+    "import_edges": 42,
+    "cross_service_edges": 18,
+    "internal_edges": 6,
+    "cycles": 1,
+    "shared_tables": 3
+  }
+};
+const svc = {};
+G.nodes.forEach(n => (svc[n.service] = svc[n.service] || []).push(n));
+const svcNames = Object.keys(svc).filter(s => s !== "platform-lib");
+const cx = 500, cy = 300, rx = 360, ry = 215;
+const pos = {}, center = {};
+svcNames.forEach((s, i) => {
+  const a = -Math.PI/2 + (2*Math.PI*i)/svcNames.length;
+  center[s] = [cx + rx*Math.cos(a), cy + ry*Math.sin(a)];
+  const m = svc[s].length;
+  svc[s].forEach((n, j) => {
+    const off = m === 1 ? [0,0] : [Math.cos(2*Math.PI*j/m)*42, Math.sin(2*Math.PI*j/m)*30];
+    pos[n.id] = [center[s][0]+off[0], center[s][1]+off[1]];
+  });
+});
+// Platform libs in the middle
+const plat = svc["platform-lib"] || [];
+plat.forEach((n, j) => { pos[n.id] = [cx + (j-(plat.length-1)/2)*95, cy]; });
+
+const palette = ["#4f7cac","#7a5fa0","#3d8b7a","#b7791f","#a0526b","#5b7f2e","#7c6f64"];
+const color = {}; svcNames.forEach((s,i)=>color[s]=palette[i%palette.length]); color["platform-lib"]="#9ca3af";
+
+const svg = document.getElementById("svg");
+const NS = "http://www.w3.org/2000/svg";
+function el(t, a, p) { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); (p||svg).appendChild(e); return e; }
+
+el("defs", {}).innerHTML = ["cross","cycle","ok","plat"].map(k =>
+  `<marker id="m-${k}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--${k})"/></marker>`).join("");
+
+// service halos
+const halo = el("g", {});
+svcNames.forEach(s => {
+  const [x,y] = center[s];
+  el("ellipse", {cx:x, cy:y, rx:92, ry:66, fill:color[s], "fill-opacity":.10, stroke:color[s], "stroke-opacity":.45, "stroke-dasharray":"4 4"}, halo);
+  const t = el("text", {x, y:y-74, "text-anchor":"middle", class:"svc-label"}, halo); t.textContent = s;
+});
+if (plat.length) { const t = el("text", {x:cx, y:cy+34, "text-anchor":"middle", class:"svc-label"}, halo); t.textContent = "shared library (config / db / utils)"; }
+
+const edgeG = el("g", {}), tableG = el("g", {}), nodeG = el("g", {});
+const radius = n => 10 + (n.fan_in + n.fan_out) * 1.4;
+const edgeEls = [];
+G.edges.forEach(e => {
+  const kind = e.in_cycle ? "cycle" : e.to_platform ? "plat" : e.cross_service ? "cross" : "ok";
+  const [x1,y1] = pos[e.source], [x2,y2] = pos[e.target];
+  const dx = x2-x1, dy = y2-y1, d = Math.hypot(dx,dy) || 1;
+  const rs = radius(G.nodes.find(n=>n.id===e.source)), rt = radius(G.nodes.find(n=>n.id===e.target)) + 4;
+  const mx = (x1+x2)/2 - dy*0.08, my = (y1+y2)/2 + dx*0.08;
+  const p = el("path", {
+    d:`M${x1+dx/d*rs},${y1+dy/d*rs} Q${mx},${my} ${x2-dx/d*rt},${y2-dy/d*rt}`,
+    fill:"none", stroke:`var(--${kind})`, "stroke-width": kind==="cycle"?3:kind==="cross"?1.8:1.2,
+    "stroke-opacity": kind==="plat"?.45:.85, "stroke-dasharray": kind==="plat"?"4 3":"", "marker-end":`url(#m-${kind})`
+  }, edgeG);
+  edgeEls.push({p, e, kind});
+});
+
+// shared tables overlay
+const tblLines = [];
+Object.entries(G.shared_tables).forEach(([t, users]) => {
+  for (let i=0;i<users.length;i++) for (let j=i+1;j<users.length;j++) {
+    const [x1,y1]=pos[users[i]], [x2,y2]=pos[users[j]];
+    const l = el("line", {x1,y1,x2,y2,stroke:"#a855f7","stroke-width":2.5,"stroke-dasharray":"2 5","stroke-linecap":"round"}, tableG);
+    const tx = el("text",{x:(x1+x2)/2,y:(y1+y2)/2-4,"text-anchor":"middle",class:"node-label",style:"fill:#a855f7;font-weight:600"}, tableG); tx.textContent = t;
+  }
+});
+tableG.style.display = "none";
+
+const detail = document.getElementById("detail");
+G.nodes.forEach(n => {
+  const [x,y] = pos[n.id];
+  const g = el("g", {style:"cursor:pointer", tabindex:0}, nodeG);
+  el("circle", {cx:x, cy:y, r:radius(n), fill:color[n.service], "fill-opacity":n.platform?.5:.9,
+    stroke:n.in_cycle?"var(--cycle)":"var(--bg)", "stroke-width":n.in_cycle?3.5:2}, g);
+  const t = el("text", {x, y:y+radius(n)+13, "text-anchor":"middle", class:"node-label"}, g); t.textContent = n.id;
+  const show = () => {
+    const out = G.edges.filter(e=>e.source===n.id).map(e=>e.target), inn = G.edges.filter(e=>e.target===n.id).map(e=>e.source);
+    detail.innerHTML = `<b>${n.id}</b> &middot; ${n.service} &middot; ${n.loc} lines<br>Calls: ${out.join(", ")||"nothing"}<br>Called by: ${inn.join(", ")||"nothing (entry point)"}`
+      + (n.in_cycle ? `<br><b style="color:var(--cycle)">Part of a circular dependency</b>` : "")
+      + (n.tables.length ? `<br>Data touched: ${n.tables.join(", ")}` : "");
+    edgeEls.forEach(({p,e}) => p.style.opacity = (e.source===n.id||e.target===n.id) ? 1 : .12);
+  };
+  const hide = () => edgeEls.forEach(({p}) => p.style.opacity = "");
+  g.addEventListener("mouseenter", show); g.addEventListener("mouseleave", hide);
+  g.addEventListener("focus", show); g.addEventListener("blur", hide); g.addEventListener("click", show);
+});
+
+function refresh() {
+  const sp = document.getElementById("tPlat").checked, si = document.getElementById("tInternal").checked;
+  edgeEls.forEach(({p,kind}) => p.style.display = ((kind==="plat"&&!sp)||(kind==="ok"&&!si)) ? "none" : "");
+  tableG.style.display = document.getElementById("tTables").checked ? "" : "none";
+}
+["tPlat","tInternal","tTables"].forEach(i => document.getElementById(i).addEventListener("change", refresh));
+refresh();
+
+const s = G.summary;
+document.getElementById("stats").innerHTML = [
+  [s.modules, "modules in one deployable"], [s.cross_service_edges, "calls that become APIs"],
+  [s.cycles, "circular dependency to break"], [s.shared_tables, "tables needing one owner"]
+].map(([v,l]) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`).join("");
+</script>
+</body>
+</html>

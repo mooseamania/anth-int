@@ -1,0 +1,39 @@
+# Nightly jobs leave the web tier: run on the tainted batch node group, scale to zero when idle.
+apiVersion: batch/v1
+kind: CronJob
+metadata: { name: nightly-settlement, namespace: core }
+spec:
+  schedule: "0 6 * * *"        # 06:00 UTC
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: Never
+          serviceAccountName: reporting
+          nodeSelector: { workload: batch }
+          tolerations: [{ key: workload, operator: Equal, value: batch, effect: NoSchedule }]
+          containers:
+            - name: job
+              image: ACCOUNT.dkr.ecr.us-east-1.amazonaws.com/reporting-batch:REPLACE_TAG
+              command: ["python", "-m", "reporting.batch_jobs", "run_all"]
+              resources: { requests: { cpu: "1", memory: 1Gi }, limits: { cpu: "2", memory: 2Gi } }
+---
+# Only the mobile BFF is internet-facing. TLS terminates at the ALB (ACM certificate).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mobile-bff
+  namespace: core
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:ACCOUNT:certificate/REPLACE
+spec:
+  ingressClassName: alb
+  rules:
+    - http:
+        paths:
+          - { path: /, pathType: Prefix, backend: { service: { name: mobile-bff, port: { number: 80 } } } }

@@ -1,0 +1,169 @@
+# One Deployment + Service per proposed bounded context. Images are placeholders.
+# Replicas/limits are starting points to validate in a load test, not recommendations.
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: mobile-bff, namespace: core, labels: { app: mobile-bff } }
+spec:
+  replicas: 3
+  selector: { matchLabels: { app: mobile-bff } }
+  template:
+    metadata: { labels: { app: mobile-bff } }
+    spec:
+      serviceAccountName: mobile-bff
+      securityContext: { runAsNonRoot: true, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: app
+          image: ACCOUNT.dkr.ecr.us-east-1.amazonaws.com/mobile-bff:REPLACE_TAG
+          ports: [{ containerPort: 8080 }]
+          readinessProbe: { httpGet: { path: /healthz, port: 8080 }, periodSeconds: 5 }
+          resources: { requests: { cpu: 250m, memory: 256Mi }, limits: { cpu: "1", memory: 512Mi } }
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: mobile-bff, namespace: core }
+spec:
+  selector: { app: mobile-bff }
+  ports: [{ port: 80, targetPort: 8080 }]
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata: { name: mobile-bff, namespace: core }
+spec:
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: mobile-bff }
+  minReplicas: 3
+  maxReplicas: 12
+  metrics:
+    - type: Resource
+      resource: { name: cpu, target: { type: Utilization, averageUtilization: 65 } }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: payments-core, namespace: core, labels: { app: payments-core } }
+spec:
+  replicas: 3
+  selector: { matchLabels: { app: payments-core } }
+  template:
+    metadata: { labels: { app: payments-core } }
+    spec:
+      serviceAccountName: payments-core
+      securityContext: { runAsNonRoot: true, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: app   # payments + fraud scoring ship together: they were a circular dependency
+          image: ACCOUNT.dkr.ecr.us-east-1.amazonaws.com/payments-core:REPLACE_TAG
+          ports: [{ containerPort: 8080 }]
+          readinessProbe: { httpGet: { path: /healthz, port: 8080 }, periodSeconds: 5 }
+          resources: { requests: { cpu: 500m, memory: 512Mi }, limits: { cpu: "2", memory: 1Gi } }
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: payments-core, namespace: core }
+spec:
+  selector: { app: payments-core }
+  ports: [{ port: 80, targetPort: 8080 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: ledger-core, namespace: core, labels: { app: ledger-core } }
+spec:
+  replicas: 3     # system of record: keep conservative, scale vertically before horizontally
+  selector: { matchLabels: { app: ledger-core } }
+  template:
+    metadata: { labels: { app: ledger-core } }
+    spec:
+      serviceAccountName: ledger-core
+      securityContext: { runAsNonRoot: true, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: app
+          image: ACCOUNT.dkr.ecr.us-east-1.amazonaws.com/ledger-core:REPLACE_TAG
+          ports: [{ containerPort: 8080 }]
+          readinessProbe: { httpGet: { path: /healthz, port: 8080 }, periodSeconds: 5 }
+          resources: { requests: { cpu: 500m, memory: 512Mi }, limits: { cpu: "2", memory: 1Gi } }
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: ledger-core, namespace: core }
+spec:
+  selector: { app: ledger-core }
+  ports: [{ port: 80, targetPort: 8080 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: identity, namespace: core, labels: { app: identity } }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: identity } }
+  template:
+    metadata: { labels: { app: identity } }
+    spec:
+      serviceAccountName: identity
+      securityContext: { runAsNonRoot: true, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: app   # auth + accounts
+          image: ACCOUNT.dkr.ecr.us-east-1.amazonaws.com/identity:REPLACE_TAG
+          ports: [{ containerPort: 8080 }]
+          readinessProbe: { httpGet: { path: /healthz, port: 8080 }, periodSeconds: 5 }
+          resources: { requests: { cpu: 250m, memory: 256Mi }, limits: { cpu: "1", memory: 512Mi } }
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: identity, namespace: core }
+spec:
+  selector: { app: identity }
+  ports: [{ port: 80, targetPort: 8080 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: notifications, namespace: core, labels: { app: notifications } }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: notifications } }
+  template:
+    metadata: { labels: { app: notifications } }
+    spec:
+      serviceAccountName: notifications
+      securityContext: { runAsNonRoot: true, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: app
+          image: ACCOUNT.dkr.ecr.us-east-1.amazonaws.com/notifications:REPLACE_TAG
+          ports: [{ containerPort: 8080 }]
+          readinessProbe: { httpGet: { path: /healthz, port: 8080 }, periodSeconds: 5 }
+          resources: { requests: { cpu: 100m, memory: 128Mi }, limits: { cpu: 500m, memory: 256Mi } }
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: notifications, namespace: core }
+spec:
+  selector: { app: notifications }
+  ports: [{ port: 80, targetPort: 8080 }]
+---
+# Read-only reporting API for BI + mobile "activity" widgets; reads from a replica/warehouse, not the primary
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: reporting-api, namespace: core, labels: { app: reporting-api } }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: reporting-api } }
+  template:
+    metadata: { labels: { app: reporting-api } }
+    spec:
+      serviceAccountName: reporting
+      securityContext: { runAsNonRoot: true, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: app
+          image: ACCOUNT.dkr.ecr.us-east-1.amazonaws.com/reporting-api:REPLACE_TAG
+          ports: [{ containerPort: 8080 }]
+          readinessProbe: { httpGet: { path: /healthz, port: 8080 }, periodSeconds: 5 }
+          resources: { requests: { cpu: 250m, memory: 256Mi }, limits: { cpu: "1", memory: 512Mi } }
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: reporting-api, namespace: core }
+spec:
+  selector: { app: reporting-api }
+  ports: [{ port: 80, targetPort: 8080 }]

@@ -1,0 +1,38 @@
+# Suggested starting cluster. Sized for a pilot, not production: revisit after load tests.
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+metadata:
+  name: fintechco-core-pilot
+  region: us-east-1
+  version: "1.31"
+vpc:
+  nat:
+    gateway: HighlyAvailable
+iam:
+  withOIDC: true            # enables IRSA: pods get scoped AWS roles, no static keys
+managedNodeGroups:
+  - name: services
+    instanceType: m6i.large
+    minSize: 3
+    desiredCapacity: 3
+    maxSize: 9
+    privateNetworking: true
+    labels: { workload: online }
+  - name: batch
+    instanceType: m6i.xlarge
+    minSize: 0
+    desiredCapacity: 0
+    maxSize: 4
+    privateNetworking: true
+    labels: { workload: batch }
+    taints:
+      - key: workload
+        value: batch
+        effect: NoSchedule
+addons:
+  - name: vpc-cni
+  - name: coredns
+  - name: kube-proxy
+cloudWatch:
+  clusterLogging:
+    enableTypes: ["api", "audit", "authenticator"]   # audit trail for compliance

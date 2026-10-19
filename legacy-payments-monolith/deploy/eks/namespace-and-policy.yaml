@@ -1,0 +1,60 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: core
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+---
+# Default deny; each service then opts in to exactly the calls the analysis found.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: core
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-egress
+  namespace: core
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+---
+# payments-core may call ledger-core, identity, notifications (see boundaries.md)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: payments-core-egress
+  namespace: core
+spec:
+  podSelector: { matchLabels: { app: payments-core } }
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector: { matchLabels: { app: ledger-core } }
+        - podSelector: { matchLabels: { app: identity } }
+        - podSelector: { matchLabels: { app: notifications } }
+---
+# mobile-bff is the only service exposed through the ALB
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mobile-bff-egress
+  namespace: core
+spec:
+  podSelector: { matchLabels: { app: mobile-bff } }
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector: { matchLabels: { app: payments-core } }
+        - podSelector: { matchLabels: { app: identity } }
+        - podSelector: { matchLabels: { app: notifications } }
+        - podSelector: { matchLabels: { app: reporting-api } }

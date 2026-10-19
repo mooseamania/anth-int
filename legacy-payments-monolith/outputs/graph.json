@@ -1,0 +1,481 @@
+{
+  "nodes": [
+    {
+      "id": "accounts",
+      "loc": 22,
+      "service": "identity",
+      "fan_in": 6,
+      "fan_out": 3,
+      "tables": [
+        "accounts",
+        "users"
+      ],
+      "in_cycle": false,
+      "platform": false
+    },
+    {
+      "id": "auth",
+      "loc": 24,
+      "service": "identity",
+      "fan_in": 2,
+      "fan_out": 3,
+      "tables": [
+        "sessions",
+        "users"
+      ],
+      "in_cycle": false,
+      "platform": false
+    },
+    {
+      "id": "batch_jobs",
+      "loc": 23,
+      "service": "reporting-bi",
+      "fan_in": 0,
+      "fan_out": 7,
+      "tables": [
+        "accounts"
+      ],
+      "in_cycle": false,
+      "platform": false
+    },
+    {
+      "id": "config",
+      "loc": 10,
+      "service": "platform-lib",
+      "fan_in": 7,
+      "fan_out": 0,
+      "tables": [],
+      "in_cycle": false,
+      "platform": true
+    },
+    {
+      "id": "db",
+      "loc": 15,
+      "service": "platform-lib",
+      "fan_in": 7,
+      "fan_out": 1,
+      "tables": [],
+      "in_cycle": false,
+      "platform": true
+    },
+    {
+      "id": "fraud",
+      "loc": 16,
+      "service": "payments-core",
+      "fan_in": 1,
+      "fan_out": 5,
+      "tables": [
+        "fraud_scores"
+      ],
+      "in_cycle": true,
+      "platform": false
+    },
+    {
+      "id": "ledger",
+      "loc": 25,
+      "service": "ledger-core",
+      "fan_in": 4,
+      "fan_out": 3,
+      "tables": [
+        "ledger"
+      ],
+      "in_cycle": false,
+      "platform": false
+    },
+    {
+      "id": "mobile_api",
+      "loc": 24,
+      "service": "mobile-bff",
+      "fan_in": 0,
+      "fan_out": 5,
+      "tables": [],
+      "in_cycle": false,
+      "platform": false
+    },
+    {
+      "id": "notifications",
+      "loc": 21,
+      "service": "notifications",
+      "fan_in": 3,
+      "fan_out": 2,
+      "tables": [],
+      "in_cycle": false,
+      "platform": false
+    },
+    {
+      "id": "payments",
+      "loc": 25,
+      "service": "payments-core",
+      "fan_in": 4,
+      "fan_out": 7,
+      "tables": [
+        "payments"
+      ],
+      "in_cycle": true,
+      "platform": false
+    },
+    {
+      "id": "reporting",
+      "loc": 23,
+      "service": "reporting-bi",
+      "fan_in": 2,
+      "fan_out": 5,
+      "tables": [
+        "ledger",
+        "payments"
+      ],
+      "in_cycle": false,
+      "platform": false
+    },
+    {
+      "id": "utils",
+      "loc": 21,
+      "service": "platform-lib",
+      "fan_in": 6,
+      "fan_out": 1,
+      "tables": [],
+      "in_cycle": false,
+      "platform": true
+    }
+  ],
+  "edges": [
+    {
+      "source": "accounts",
+      "target": "auth",
+      "cross_service": false,
+      "to_platform": false,
+      "in_cycle": false
+    },
+    {
+      "source": "accounts",
+      "target": "utils",
+      "cross_service": true,
+      "to_platform": true,
+      "in_cycle": false
+    },
+    {
+      "source": "accounts",
+      "target": "db",
+      "cross_service": true,
+      "to_platform": true,
+      "in_cycle": false
+    },
+    {
+      "source": "auth",
+      "target": "utils",
+      "cross_service": true,
+      "to_platform": true,
+      "in_cycle": false
+    },
+    {
+      "source": "auth",
+      "target": "db",
+      "cross_service": true,
+      "to_platform": true,
+      "in_cycle": false
+    },
+    {
+      "source": "auth",
+      "target": "config",
+      "cross_service": true,
+      "to_platform": true,
+      "in_cycle": false
+    },
+    {
+      "source": "utils",
+      "target": "config",
+      "cross_service": false,
+      "to_platform": true,
+      "in_cycle": false
+    },
+    {
+      "source": "db",
+      "target": "config",
+      "cross_service": false,
+      "to_platform": true,
+      "in_cycle": false
+    },
+    {
+      "source": "batch_jobs",
+      "target": "payments",
+      "cross_service": true,
+      "to_platform": false,
+      "in_cycle": false
+    },
+    {
+      "source": "batch_jobs",
+      "target": "utils",
+      "cross_service": true,
+      "to_platform": true,
+      "in_cycle": false
+    },
+    {
+      "source": "batch_jobs",
+      "target": "ledger",
+      "cross_service": true,
+      "to_platform": false,
+      "in_cycle": false
+    },
+    {
+      "source": "batch_jobs",
+      "target": "accounts",
+      "cross_service": true,
+      "to_platform": false,
+      "in_cycle": false
+    },
+    {
+      "source": "batch_jobs",
+      "target": "db",
+      "cross_service": true,
+      "to_platform": true,
+      "in_cycle": false
+    },
+    {
+      "source": "batch_jobs",
+      "target": "reporting",
+      "cross_service": false,
+      "to_platform": false,
+      "in_cycle": false
+    },
+    {
+      "source": "batch_jobs",
+      "target": "notifications",
+      "cross_service": true,
+      "to_platform": false,
+      "in_cycle": false
+    },
+    {
+      "source": "payments",
+      "target": "utils",
+      "cross_service": true,
+      "to_platform": true,
+      "in_cycle": false
+    },
+    {
+      "source": "payments",
+      "target": "config",
+      "cross_service": true,
+      "to_platform": true,
+      "in_cycle": false
+    },
+    {
+      "source": "payments",
+      "target": "fraud",
+      "cross_service": false,
+      "to_platform": false,
+      "in_cycle": true
+    },
+    {
+      "source": "payments",
+      "target": "ledger",
+      "cross_service": true,
+      "to_platform": false,
+      "in_cycle": false
+    },
+    {
+      "source": "payments",
+      "target": "accounts",
+      "cross_service": true,
+      "to_platform": false,
+      "in_cycle": false
+    },
+    {
+      "source": "payments",
+      "target": "db",
+      "cross_service": true,
+      "to_platform": true,
+      "in_cycle": false
+    },
+    {
+      "source": "payments",
+      "target": "notifications",
+      "cross_service": true,
+      "to_platform": false,
+      "in_cycle": false
+    },
+    {
+      "source": "ledger",
+      "target": "utils",
+      "cross_service": true,
+      "to_platform": true,
+      "in_cycle": false
+    },
+    {
+      "source": "ledger",
+      "target": "accounts",
+      "cross_service": true,
+      "to_platform": false,
+      "in_cycle": false
+    },
+    {
+      "source": "ledger",
+      "target": "db",
+      "cross_service": true,
+      "to_platform": true,
+      "in_cycle": false
+    },
+    {
+      "source": "reporting",
+      "target": "payments",
+      "cross_service": true,
+      "to_platform": false,
+      "in_cycle": false
+    },
+    {
+      "source": "reporting",
+      "target": "config",
+      "cross_service": true,
+      "to_platform": true,
+      "in_cycle": false
+    },
+    {
+      "source": "reporting",
+      "target": "ledger",
+      "cross_service": true,
+      "to_platform": false,
+      "in_cycle": false
+    },
+    {
+      "source": "reporting",
+      "target": "accounts",
+      "cross_service": true,
+      "to_platform": false,
+      "in_cycle": false
+    },
+    {
+      "source": "reporting",
+      "target": "db",
+      "cross_service": true,
+      "to_platform": true,
+      "in_cycle": false
+    },
+    {
+      "source": "notifications",
+      "target": "accounts",
+      "cross_service": true,
+      "to_platform": false,
+      "in_cycle": false
+    },
+    {
+      "source": "notifications",
+      "target": "config",
+      "cross_service": true,
+      "to_platform": true,
+      "in_cycle": false
+    },
+    {
+      "source": "fraud",
+      "target": "payments",
+      "cross_service": false,
+      "to_platform": false,
+      "in_cycle": true
+    },
+    {
+      "source": "fraud",
+      "target": "utils",
+      "cross_service": true,
+      "to_platform": true,
+      "in_cycle": false
+    },
+    {
+      "source": "fraud",
+      "target": "config",
+      "cross_service": true,
+      "to_platform": true,
+      "in_cycle": false
+    },
+    {
+      "source": "fraud",
+      "target": "ledger",
+      "cross_service": true,
+      "to_platform": false,
+      "in_cycle": false
+    },
+    {
+      "source": "fraud",
+      "target": "db",
+      "cross_service": true,
+      "to_platform": true,
+      "in_cycle": false
+    },
+    {
+      "source": "mobile_api",
+      "target": "payments",
+      "cross_service": true,
+      "to_platform": false,
+      "in_cycle": false
+    },
+    {
+      "source": "mobile_api",
+      "target": "notifications",
+      "cross_service": true,
+      "to_platform": false,
+      "in_cycle": false
+    },
+    {
+      "source": "mobile_api",
+      "target": "accounts",
+      "cross_service": true,
+      "to_platform": false,
+      "in_cycle": false
+    },
+    {
+      "source": "mobile_api",
+      "target": "auth",
+      "cross_service": true,
+      "to_platform": false,
+      "in_cycle": false
+    },
+    {
+      "source": "mobile_api",
+      "target": "reporting",
+      "cross_service": true,
+      "to_platform": false,
+      "in_cycle": false
+    }
+  ],
+  "cycles": [
+    [
+      "fraud",
+      "payments"
+    ]
+  ],
+  "shared_tables": {
+    "accounts": [
+      "accounts",
+      "batch_jobs"
+    ],
+    "ledger": [
+      "ledger",
+      "reporting"
+    ],
+    "payments": [
+      "payments",
+      "reporting"
+    ]
+  },
+  "detected_communities": [
+    [
+      "batch_jobs",
+      "fraud",
+      "ledger",
+      "payments",
+      "reporting"
+    ],
+    [
+      "accounts",
+      "auth",
+      "mobile_api",
+      "notifications"
+    ]
+  ],
+  "summary": {
+    "modules": 12,
+    "total_loc": 249,
+    "import_edges": 42,
+    "cross_service_edges": 18,
+    "internal_edges": 6,
+    "cycles": 1,
+    "shared_tables": 3
+  }
+}

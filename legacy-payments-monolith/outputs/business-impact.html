@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mobile speed model</title>
+<style>
+  :root { --bg:#faf9f5; --fg:#141413; --muted:#6b6a64; --card:#fff; --line:#d9d7cf; --accent:#c2562f; --blue:#3b6ea5; --good:#3d6b4f; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#1f1e1d; --fg:#f0eee6; --muted:#a8a69c; --card:#2a2928; --line:#44423e; --accent:#e8845f; --blue:#7fa7d6; --good:#7fb592; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif; }
+  .wrap { max-width:1000px; margin:0 auto; padding:20px 16px 48px; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  h2 { font-size:16px; margin:0 0 10px; }
+  .sub { color:var(--muted); margin:0 0 14px; }
+  .banner { background:var(--card); border:1px solid var(--line); border-left:4px solid var(--accent); border-radius:8px; padding:9px 12px; font-size:13px; color:var(--muted); margin-bottom:16px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; margin-bottom:16px; }
+  .kpi { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; }
+  .kpi b { display:block; font-size:28px; line-height:1.15; }
+  .kpi span { color:var(--muted); font-size:13px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:16px; }
+  .row { display:grid; grid-template-columns:1fr; gap:10px; }
+  @media (min-width:700px){ .row{grid-template-columns:1fr 1fr; gap:18px;} }
+  .ctl { margin-bottom:10px; font-size:14px; }
+  .ctl .top { display:flex; justify-content:space-between; }
+  input[type=range] { width:100%; accent-color:var(--accent); }
+  .bar { display:flex; align-items:center; gap:10px; margin:8px 0; font-size:13px; }
+  .bar .lbl { width:150px; color:var(--muted); }
+  .bar .track { flex:1; background:var(--line); border-radius:6px; height:22px; overflow:hidden; }
+  .bar .fill { height:100%; border-radius:6px; display:flex; align-items:center; padding-left:8px; color:#fff; font-size:12px; white-space:nowrap; transition:width .25s; }
+  .story { display:flex; flex-wrap:wrap; gap:8px; align-items:stretch; }
+  .step { flex:1 1 150px; border:1px solid var(--line); border-radius:10px; padding:10px; font-size:13px; background:var(--bg); }
+  .step b { display:block; margin-bottom:2px; }
+  .arrow { align-self:center; color:var(--muted); }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  td, th { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); }
+  th { color:var(--muted); font-weight:600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Faster mobile releases, in business terms</h1>
+  <p class="sub">What changes for customers and for the P&amp;L when the mobile backend stops waiting on the monolith release train.</p>
+  <div class="banner"><b>Illustrative model.</b> Every input below is an assumption you can change. Replace with FinTechCo's own baseline numbers from the first two weeks of the pilot before quoting any figure externally.</div>
+
+  <div class="story" aria-label="How the technical change turns into business results">
+    <div class="step"><b>1. Split out the mobile layer</b>Mobile features no longer wait for the whole system to ship.</div><div class="arrow">&rarr;</div>
+    <div class="step"><b>2. Ship more often</b>Smaller changes, faster fixes, less release-day risk.</div><div class="arrow">&rarr;</div>
+    <div class="step"><b>3. Customers see improvements sooner</b>Faster onboarding, fewer friction points in sending money.</div><div class="arrow">&rarr;</div>
+    <div class="step"><b>4. Adoption and revenue follow</b>More active mobile users, more payment volume.</div>
+  </div>
+  <div style="height:16px"></div>
+
+  <div class="grid" id="kpis"></div>
+
+  <div class="row">
+    <div class="card">
+      <h2>Assumptions (drag to explore)</h2>
+      <div id="controls"></div>
+    </div>
+    <div class="card">
+      <h2>Before vs after</h2>
+      <div id="bars"></div>
+      <p class="sub" style="margin:10px 0 0;font-size:13px">Lead time = idea approved to feature in customers' hands.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Measures to track from day one</h2>
+    <table>
+      <tr><th>Measure</th><th>Why a non-technical leader should care</th><th>Where it comes from</th></tr>
+      <tr><td>Mobile feature lead time</td><td>How fast good ideas reach customers</td><td>Ticket system + deploy log</td></tr>
+      <tr><td>Releases per month</td><td>Pace of improvement and of fixes</td><td>CI/CD</td></tr>
+      <tr><td>Failed-release rate</td><td>Quality does not drop while speed rises</td><td>Incident + rollback records</td></tr>
+      <tr><td>Time to restore service</td><td>Customer impact when something breaks</td><td>Incident tooling</td></tr>
+      <tr><td>Mobile monthly active users</td><td>The outcome the speed is meant to move</td><td>Product analytics</td></tr>
+      <tr><td>Engineer hours reclaimed</td><td>Capacity redirected to new products</td><td>Pilot time survey + PR data</td></tr>
+    </table>
+  </div>
+</div>
+<script>
+const P = [
+  {k:"eng",  l:"Engineers using Claude Code", min:10, max:120, step:5,  v:60,  f:v=>v},
+  {k:"cost", l:"Loaded cost per engineer / year ($)", min:120000, max:300000, step:10000, v:200000, f:v=>"$"+(v/1000)+"k"},
+  {k:"save", l:"Share of time reclaimed", min:2, max:30, step:1, v:10, f:v=>v+"%"},
+  {k:"relBefore", l:"Mobile backend releases / year today", min:4, max:24, step:1, v:12, f:v=>v},
+  {k:"relAfter",  l:"Mobile backend releases / year after split", min:12, max:104, step:4, v:48, f:v=>v},
+  {k:"mau", l:"Mobile monthly active users today", min:50000, max:2000000, step:50000, v:500000, f:v=>(v/1000)+"k"},
+  {k:"lift", l:"Adoption lift from faster releases", min:0, max:15, step:1, v:4, f:v=>v+"%"},
+  {k:"rev", l:"Annual revenue per active mobile user ($)", min:5, max:150, step:5, v:40, f:v=>"$"+v},
+  {k:"tool", l:"Tooling cost per engineer / year ($)", min:500, max:6000, step:250, v:2400, f:v=>"$"+v},
+];
+const S = Object.fromEntries(P.map(p=>[p.k,p.v]));
+const fmt = n => n>=1e6 ? "$"+(n/1e6).toFixed(1)+"M" : n>=1e3 ? "$"+Math.round(n/1e3)+"k" : "$"+Math.round(n);
+function build(){
+  document.getElementById("controls").innerHTML = P.map(p=>`<div class="ctl"><div class="top"><label for="${p.k}">${p.l}</label><b id="o_${p.k}">${p.f(p.v)}</b></div>
+   <input id="${p.k}" type="range" min="${p.min}" max="${p.max}" step="${p.step}" value="${p.v}"></div>`).join("");
+  P.forEach(p=>document.getElementById(p.k).addEventListener("input",e=>{S[p.k]=+e.target.value;document.getElementById("o_"+p.k).textContent=p.f(S[p.k]);render();}));
+}
+function render(){
+  const hours = S.eng*2080*S.save/100;
+  const capacity = S.eng*S.cost*S.save/100;
+  const toolCost = S.eng*S.tool;
+  const addUsers = Math.round(S.mau*S.lift/100);
+  const addRev = addUsers*S.rev;
+  const net = capacity + addRev - toolCost;
+  const ratioCap = capacity/toolCost;
+  const leadBefore = 365/S.relBefore, leadAfter = 365/S.relAfter;  // days between release windows
+  document.getElementById("kpis").innerHTML = [
+    [Math.round(hours).toLocaleString(), "engineer hours reclaimed per year"],
+    [fmt(capacity), "engineering capacity redirected to new products"],
+    [addUsers.toLocaleString(), "additional active mobile users"],
+    [fmt(addRev), "added annual revenue from those users"],
+    [fmt(net), "net annual value after tooling cost"],
+    [ratioCap.toFixed(1)+"x", "capacity value per tooling dollar"],
+  ].map(([v,l])=>`<div class="kpi"><b>${v}</b><span>${l}</span></div>`).join("");
+  const mx = Math.max(leadBefore, leadAfter);
+  const bar=(lbl,val,c,txt)=>`<div class="bar"><div class="lbl">${lbl}</div><div class="track"><div class="fill" style="width:${Math.max(8,val/mx*100)}%;background:${c}">${txt}</div></div></div>`;
+  document.getElementById("bars").innerHTML =
+    bar("Wait for next release (today)", leadBefore, "var(--blue)", Math.round(leadBefore)+" days") +
+    bar("Wait for next release (after)", leadAfter, "var(--good)", Math.round(leadAfter)+" days") +
+    bar("Releases per year (today)", S.relBefore/S.relAfter*mx, "var(--blue)", S.relBefore) +
+    bar("Releases per year (after)", mx, "var(--good)", S.relAfter);
+}
+build(); render();
+</script>
+</body>
+</html>
